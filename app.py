@@ -17,10 +17,10 @@ data_store = {"scopus": None, "wos": None, "processed": None}
 def upload_file():
     print(request.files)
     print(request.form)
-    if "source" not in request.files:
-        return jsonify({"error": "Missing source parameter"}), 400
-    elif "file" not in request.form:
+    if "file" not in request.files:
         return jsonify({"error": "Missing file parameter"}), 400
+    elif "source" not in request.form:
+        return jsonify({"error": "Missing source parameter"}), 400
     file = request.files["file"]
     source = request.form["source"]
     if file.filename == "":
@@ -28,10 +28,13 @@ def upload_file():
     if source.lower() not in ["scopus", "wos"]:
         return jsonify({"error": "Invalid source specified"}), 400
     # Reading the file into the appropriate DataFrame
-    if source == "scopus":
-        data_store["scopus"] = pd.read_csv(file)
-    elif source == "wos":
-        data_store["wos"] = pd.read_excel(file)
+    try:
+        if source == "scopus":
+            data_store["scopus"] = pd.read_excel(file)
+        elif source == "wos":
+            data_store["wos"] = pd.read_csv(file)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     return jsonify({"message": f"{source} file uploaded successfully"}), 200
 
 
