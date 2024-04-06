@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Firebase Configuration -->
+    <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-auth.js"></script>
+    <script>
+        var firebaseConfig = {
+            apiKey: "AIzaSyDMqn9X38QQQ_FQLEVsKd3XCMDfDaNGVnc",
+            authDomain: "prisma-58a39.firebaseapp.com",
+            databaseURL: "https://prisma-58a39-default-rtdb.firebaseio.com",
+            projectId: "prisma-58a39",
+            storageBucket: "prisma-58a39.appspot.com",
+            messagingSenderId: "532575758086",
+            appId: "1:532575758086:web:76b7e4ef12cc5252736087",
+            measurementId: "G-T0LYHFX9WH"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Login</h2>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" class="form-control" id="password" required>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="loginWithEmailPassword()">Login</button>
+            <button type="button" class="btn btn-secondary" onclick="loginWithGoogle()">Login with Google</button>
+        </form>
+    </div>
+
+    <script>
+        function loginWithEmailPassword() {
+            var email = document.getElementById('email').value;
+            var password = document.getElementById('password').value;
+            firebase.auth().signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Get the ID token
+                    userCredential.user.getIdToken().then((idToken) => {
+                        console.log(idToken);
+                        // Send the ID token to the Flask server
+                        fetch("/auth/login", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ idToken: idToken }),
+                        })
+                            .then(response => {
+                                if (response.ok) {
+                                    window.location.href = '/auth/access_granted'; // Redirect on successful login
+                                } else {
+                                    alert('Login failed');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('Login failed');
+                            });
+                    });
+                })
+                .catch((error) => {
+                    var errorCode = error.code;
+                    var errorMessage = error.message;
+                    alert(errorMessage);
+                });
+        }
+
+        function loginWithGoogle() {
+            var provider = new firebase.auth.GoogleAuthProvider();
+            firebase.auth()
+                .signInWithPopup(provider)
+                .then((result) => {
+                    var user = result.user;
+                    // TODO: Handle login success
+                }).catch((error) => {
+                    // TODO: Handle login errors here
+                    alert(error.message);
+                });
+        }
+    </script>
+</body>
+
+</html>
