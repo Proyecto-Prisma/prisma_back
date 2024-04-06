@@ -6,7 +6,7 @@ import base64
 from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/upload": {"origins": "*"}})
 
 Debug = True
 
@@ -16,7 +16,6 @@ data_store = {"scopus": None, "wos": None, "processed": None}
 
 
 @app.route("/upload", methods=["POST"])
-@cross_origin()
 def upload_file():
     print(request.files)
 
