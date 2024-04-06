@@ -1,12 +1,19 @@
-from flask import Blueprint, request, jsonify, send_file, session, redirect, url_for
+from flask import Flask, request, jsonify, send_file
 import pandas as pd
-from io import BytesIO
 import matplotlib.pyplot as plt
-from .utils import data_store
+from io import BytesIO
+import base64
 
-data_blueprint = Blueprint('data', __name__)
 
-@data_blueprint.route('/upload', methods=['POST'])
+app = Flask(__name__)
+Debug = True
+
+
+# Storage for uploaded data
+data_store = {"scopus": None, "wos": None, "processed": None}
+
+
+@app.route("/upload", methods=["POST"])
 def upload_file():
     print(request.files)
     print(request.form)
@@ -31,7 +38,7 @@ def upload_file():
     return jsonify({"message": f"{source} file uploaded successfully"}), 200
 
 
-@data_blueprint.route('/process', methods=['GET'])
+@app.route("/process", methods=["GET"])
 def process_data():
     if not data_store["scopus"] or not data_store["wos"]:
         return (
@@ -59,7 +66,7 @@ def process_data():
     )
 
 
-@data_blueprint.route('/visualize/keywords', methods=['GET'])
+@app.route("/visualize/keywords", methods=["GET"])
 def visualize_keywords():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
@@ -77,7 +84,7 @@ def visualize_keywords():
     return send_file(buf, mimetype="image/png", as_attachment=False)
 
 
-@data_blueprint.route('/export', methods=['GET'])
+@app.route("/export", methods=["GET"])
 def export_data():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
@@ -89,3 +96,7 @@ def export_data():
     return send_file(
         output, attachment_filename="processed_data.xlsx", as_attachment=True
     )
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
