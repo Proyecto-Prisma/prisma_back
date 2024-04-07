@@ -154,23 +154,51 @@ def process_data():
         return jsonify({"error": str(e)}), 500
 
 
-@data_blueprint.route("/visualize/keywords", methods=["GET"])
+@data_blueprint.route("/visualize/<chart_type>", methods=["GET"])
 @cross_origin()
-def visualize_keywords():
+def visualize_data(chart_type):
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
-    # Generate a keywords frequency plot (customize this based on your actual data)
-    fig, ax = plt.subplots()
-    # Example plotting code; replace with your actual visualization logic
-    ax.bar(["Keyword A", "Keyword B"], [50, 30])
-    ax.set_xlabel("Keywords")
-    ax.set_ylabel("Frequency")
-    plt.title("Top Keywords Frequency")
-    # Save plot to a bytes buffer
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    return send_file(buf, mimetype="image/png", as_attachment=False)
+
+    if chart_type not in ["keywords", "countries", "cited_times"]:
+        return jsonify({"error": f"Invalid chart type: {chart_type}"}), 400
+
+    # Get the processed data
+    processed_data = data_store["processed"]
+
+    if chart_type == "keywords":
+    # Check if processed_data["Author Keywords"] is a pandas Series
+        if isinstance(processed_data["Author Keywords"], pd.Series):
+            # Count the frequency of each keyword
+            keyword_counts = processed_data["Author Keywords"].str.split(";").explode().value_counts()
+
+            # Convert the counts to a list of dictionaries
+            keyword_data = [{"keyword": keyword, "frequency": count} for keyword, count in keyword_counts.head(10).items()]
+        else:
+            # Handle the case where processed_data["Author Keywords"] is not a pandas Series
+            return jsonify({"error": "Author Keywords data is not valid"}), 400
+
+    elif chart_type == "countries":
+        # Count the frequency of each country
+        country_counts = processed_data["Affiliations"].value_counts()
+
+        # Convert the counts to a list of dictionaries
+        country_data = [{"country": country, "frequency": count} for country, count in country_counts.head(10).items()]
+
+    elif chart_type == "cited_times":
+        # Count the frequency of cited times
+        cited_times_counts = processed_data["Times Cited"].value_counts()
+
+        # Convert the counts to a list of dictionaries
+        cited_times_data = [{"cited_times": times, "frequency": count} for times, count in cited_times_counts.items()]
+
+    if chart_type == "keywords":
+        return jsonify({"chart_data": keyword_data})
+    elif chart_type == "countries":
+        return jsonify({"chart_data": country_data})
+    elif chart_type == "cited_times":
+        return jsonify({"chart_data": cited_times_data})
+
 
 
 @data_blueprint.route("/export", methods=["GET"])
@@ -190,3 +218,6 @@ def export_data():
         as_attachment=True,
         download_name="processed_data.xlsx",
     )
+
+
+
