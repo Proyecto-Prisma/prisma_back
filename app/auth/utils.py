@@ -1,8 +1,8 @@
-import firebase_admin
-from firebase_admin import credentials
-from firebase_admin import auth
+import firebase_admin # type: ignore
+from firebase_admin import credentials # type: ignore
+from firebase_admin import auth # type: ignore
 
-cred = credentials.Certificate('app/NO_SEGURO/prisma-58a39-firebase-adminsdk-omwbz-ca1f403bc3.json')
+cred = credentials.Certificate('prisma-58a39-firebase-adminsdk-omwbz-ca1f403bc3.json')
 firebase_admin.initialize_app(cred)
 
 def verify_id_token(token):
