@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 import pandas as pd
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
 from io import BytesIO
 import base64
 from flask_cors import CORS, cross_origin
@@ -8,6 +9,26 @@ from flask_cors import CORS, cross_origin
 app = Flask(__name__)
 CORS(app, resources={r"/upload": {"origins": "*"}})
 
+=======
+<<<<<<<< HEAD:app/data/routes.py
+
+import app
+from .utils import data_store
+from flask_cors import CORS, cross_origin  # type: ignore
+
+
+data_blueprint = Blueprint("data", __name__)
+
+
+@data_blueprint.route("/upload", methods=["POST"])
+@cross_origin()
+========
+from io import BytesIO
+import base64
+
+
+app = Flask(__name__)
+>>>>>>> main
 Debug = True
 
 
@@ -16,6 +37,10 @@ data_store = {"scopus": None, "wos": None, "processed": None}
 
 
 @app.route("/upload", methods=["POST"])
+<<<<<<< HEAD
+=======
+>>>>>>>> main:app.py
+>>>>>>> main
 def upload_file():
     print(request.files)
 
@@ -33,16 +58,28 @@ def upload_file():
     # Reading the files into the appropriate DataFrames
     try:
         if scopus_file:  # Assuming Scopus files are CSVs
+<<<<<<< HEAD
             data_store["scopus"] = pd.read_csv(scopus_file)
         if wos_file:  # Assuming WoS files are Excel files
             data_store["wos"] = pd.read_excel(wos_file)
     except Exception as e:
         app.logger.error(f"Failed to read file: {e}")
+=======
+            data_store["scopus"] = pd.read_csv(scopus_file)  # type: ignore
+        if wos_file:  # Assuming WoS files are Excel files
+            data_store["wos"] = pd.read_excel(wos_file)  # type: ignore
+    except Exception as e:
+        app.logger.error(f"Failed to read file: {e}")  # type: ignore
+>>>>>>> main
         return jsonify({"error": str(e)}), 500
 
     return jsonify({"message": "Files uploaded successfully"}), 200
 
 
+<<<<<<< HEAD
+=======
+<<<<<<<< HEAD:app/data/routes.py
+>>>>>>> main
 def get_country_wos(address):
     # Split the address string and return the country part
     # This is just an example, adapt it to your specific address format
@@ -50,8 +87,16 @@ def get_country_wos(address):
     return country
 
 
+<<<<<<< HEAD
 @app.route("/process", methods=["GET"])
 @cross_origin()
+=======
+@data_blueprint.route("/process", methods=["GET"])
+@cross_origin()
+========
+@app.route("/process", methods=["GET"])
+>>>>>>>> main:app.py
+>>>>>>> main
 def process_data():
     # Check if data has been uploaded
     if data_store["scopus"] is None or data_store["wos"] is None:
@@ -139,7 +184,11 @@ def process_data():
         # combined_data["Cuartil"] = combined_data["Source Title"].apply(lambda x: get_q(x, df_q))
 
         # Store the processed data
+<<<<<<< HEAD
         data_store["processed"] = combined_data
+=======
+        data_store["processed"] = combined_data  # type: ignore
+>>>>>>> main
 
         return (
             jsonify(
@@ -153,12 +202,25 @@ def process_data():
 
     except Exception as e:
         # If any error occurs during processing, catch it and return as internal server error
+<<<<<<< HEAD
         app.logger.error(f"Error during processing: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/visualize/keywords", methods=["GET"])
 @cross_origin()
+=======
+        app.logger.error(f"Error during processing: {e}")  # type: ignore
+        return jsonify({"error": str(e)}), 500
+
+
+<<<<<<<< HEAD:app/data/routes.py
+@data_blueprint.route("/visualize/keywords", methods=["GET"])
+@cross_origin()
+========
+@app.route("/visualize/keywords", methods=["GET"])
+>>>>>>>> main:app.py
+>>>>>>> main
 def visualize_keywords():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
@@ -176,15 +238,28 @@ def visualize_keywords():
     return send_file(buf, mimetype="image/png", as_attachment=False)
 
 
+<<<<<<< HEAD
 @app.route("/export", methods=["GET"])
 @cross_origin()
+=======
+<<<<<<<< HEAD:app/data/routes.py
+@data_blueprint.route("/export", methods=["GET"])
+@cross_origin()
+========
+@app.route("/export", methods=["GET"])
+>>>>>>>> main:app.py
+>>>>>>> main
 def export_data():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
 
     # Convert processed DataFrame to Excel
     output = BytesIO()
+<<<<<<< HEAD
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+=======
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:  # type: ignore
+>>>>>>> main
         data_store["processed"].to_excel(writer, index=False)
     output.seek(0)
     return send_file(
