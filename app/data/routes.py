@@ -1,16 +1,16 @@
-from flask import Flask, request, jsonify, send_file
+from typing import Counter
+from flask import Blueprint, request, jsonify, send_file, session, redirect, url_for
 import pandas as pd
-import matplotlib.pyplot as plt
-<<<<<<< HEAD
 from io import BytesIO
-import base64
-from flask_cors import CORS, cross_origin
-
-app = Flask(__name__)
-CORS(app, resources={r"/upload": {"origins": "*"}})
-
-=======
-<<<<<<<< HEAD:app/data/routes.py
+import matplotlib.pyplot as plt
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.probability import FreqDist
+from wordcloud import WordCloud
+import re
+from collections import Counter
+nltk.download('stopwords')
 
 import app
 from .utils import data_store
@@ -22,25 +22,6 @@ data_blueprint = Blueprint("data", __name__)
 
 @data_blueprint.route("/upload", methods=["POST"])
 @cross_origin()
-========
-from io import BytesIO
-import base64
-
-
-app = Flask(__name__)
->>>>>>> main
-Debug = True
-
-
-# Storage for uploaded data
-data_store = {"scopus": None, "wos": None, "processed": None}
-
-
-@app.route("/upload", methods=["POST"])
-<<<<<<< HEAD
-=======
->>>>>>>> main:app.py
->>>>>>> main
 def upload_file():
     print(request.files)
 
@@ -58,28 +39,16 @@ def upload_file():
     # Reading the files into the appropriate DataFrames
     try:
         if scopus_file:  # Assuming Scopus files are CSVs
-<<<<<<< HEAD
-            data_store["scopus"] = pd.read_csv(scopus_file)
-        if wos_file:  # Assuming WoS files are Excel files
-            data_store["wos"] = pd.read_excel(wos_file)
-    except Exception as e:
-        app.logger.error(f"Failed to read file: {e}")
-=======
             data_store["scopus"] = pd.read_csv(scopus_file)  # type: ignore
         if wos_file:  # Assuming WoS files are Excel files
             data_store["wos"] = pd.read_excel(wos_file)  # type: ignore
     except Exception as e:
         app.logger.error(f"Failed to read file: {e}")  # type: ignore
->>>>>>> main
         return jsonify({"error": str(e)}), 500
 
     return jsonify({"message": "Files uploaded successfully"}), 200
 
 
-<<<<<<< HEAD
-=======
-<<<<<<<< HEAD:app/data/routes.py
->>>>>>> main
 def get_country_wos(address):
     # Split the address string and return the country part
     # This is just an example, adapt it to your specific address format
@@ -87,16 +56,8 @@ def get_country_wos(address):
     return country
 
 
-<<<<<<< HEAD
-@app.route("/process", methods=["GET"])
-@cross_origin()
-=======
 @data_blueprint.route("/process", methods=["GET"])
 @cross_origin()
-========
-@app.route("/process", methods=["GET"])
->>>>>>>> main:app.py
->>>>>>> main
 def process_data():
     # Check if data has been uploaded
     if data_store["scopus"] is None or data_store["wos"] is None:
@@ -184,11 +145,7 @@ def process_data():
         # combined_data["Cuartil"] = combined_data["Source Title"].apply(lambda x: get_q(x, df_q))
 
         # Store the processed data
-<<<<<<< HEAD
-        data_store["processed"] = combined_data
-=======
         data_store["processed"] = combined_data  # type: ignore
->>>>>>> main
 
         return (
             jsonify(
@@ -202,64 +159,136 @@ def process_data():
 
     except Exception as e:
         # If any error occurs during processing, catch it and return as internal server error
-<<<<<<< HEAD
-        app.logger.error(f"Error during processing: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/visualize/keywords", methods=["GET"])
-@cross_origin()
-=======
         app.logger.error(f"Error during processing: {e}")  # type: ignore
         return jsonify({"error": str(e)}), 500
 
 
-<<<<<<<< HEAD:app/data/routes.py
-@data_blueprint.route("/visualize/keywords", methods=["GET"])
+@data_blueprint.route("/visualize/<chart_type>", methods=["GET"])
 @cross_origin()
-========
-@app.route("/visualize/keywords", methods=["GET"])
->>>>>>>> main:app.py
->>>>>>> main
-def visualize_keywords():
+def visualize_data(chart_type):
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
-    # Generate a keywords frequency plot (customize this based on your actual data)
-    fig, ax = plt.subplots()
-    # Example plotting code; replace with your actual visualization logic
-    ax.bar(["Keyword A", "Keyword B"], [50, 30])
-    ax.set_xlabel("Keywords")
-    ax.set_ylabel("Frequency")
-    plt.title("Top Keywords Frequency")
-    # Save plot to a bytes buffer
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    return send_file(buf, mimetype="image/png", as_attachment=False)
+
+    if chart_type not in ["keywords", "countries", "cited_times", "authors", "publication_years", "abstract", "institution", "most_frequent_keywords", "cites", "authors_geographic_distribution"]:
+        return jsonify({"error": f"Invalid chart type: {chart_type}"}), 400
+
+    # Get the processed data
+    processed_data = data_store["processed"]
+
+    if chart_type == "keywords":
+        # Count the frequency of each keyword
+        keyword_counts = processed_data["Author Keywords"].str.split(";").explode().value_counts()
+
+        # Convert the counts to a list of dictionaries
+        keyword_data = [{"keyword": keyword, "frequency": count} for keyword, count in keyword_counts.head(10).items()]
+
+        return jsonify({"chart_data": keyword_data})
+
+    elif chart_type == "countries":
+        # Count the frequency of each country
+        country_counts = processed_data["Affiliations"].value_counts()
+
+        # Convert the counts to a list of dictionaries
+        country_data = [{"country": country, "frequency": count} for country, count in country_counts.head(10).items()]
+
+        return jsonify({"chart_data": country_data})
+
+    elif chart_type == "cited_times":
+        # Create a dictionary to store cited times counts for each article title
+        cited_times_data = {}
+
+        # Iterate over each row in the processed data
+        for index, row in processed_data.iterrows():
+            # Extract article title and cited times
+            title = row["Article Title"]
+            cited_times = row["Times Cited"]
+
+            # Check if the article title is already in the dictionary
+            if title in cited_times_data:
+                # Increment the count for the cited times
+                cited_times_data[title] += cited_times
+            else:
+                # Add the article title to the dictionary
+                cited_times_data[title] = cited_times
+
+        # Convert the dictionary to a list of dictionaries
+        cited_times_list = [{"title": title, "cited_times": times} for title, times in cited_times_data.items()]
+
+        return jsonify({"chart_data": cited_times_list})
+
+    elif chart_type == "authors":
+        # Count the frequency of each author
+        author_counts = processed_data["Authors"].str.split(";").explode().value_counts()
+
+        # Convert the counts to a list of dictionaries
+        author_data = [{"author": author, "frequency": count} for author, count in author_counts.head(10).items()]
+
+        return jsonify({"chart_data": author_data})
+
+    elif chart_type == "publication_years":
+        # Extract publication years
+        publication_years = processed_data["Publication Year"]
+
+        # Count the frequency of each publication year
+        year_counts = publication_years.value_counts().sort_index()
+
+        # Convert the counts to a list of dictionaries
+        year_data = [{"year": year, "frequency": count} for year, count in year_counts.items()]
+
+        return jsonify({"chart_data": year_data})
+    
+    elif chart_type == "abstract":
+        # Extraer texto del abstract
+        abstract_text = processed_data["Abstract"].str.cat(sep=" ")
+
+        # Tokenizar el texto (dividir en palabras)
+        words = re.findall(r'\b\w+\b', abstract_text.lower())
+
+        # Filtrar palabras vacías
+        stop_words = set(stopwords.words('english'))
+        words = [word for word in words if word not in stop_words]
+
+        # Contar la frecuencia de cada palabra
+        word_counts = Counter(words)
+
+        # Obtener las 10 primeras palabras que más se repiten
+        most_common_words = word_counts.most_common(10)
+
+        # Extraer las palabras y sus frecuencias
+        top_10_words = [{"text": word, "value": count} for word, count in most_common_words]
+
+        return jsonify({"chart_data": top_10_words})
+
+    elif chart_type == "authors_countries":
+        # Count the frequency of each country mentioned in the affiliations column
+        country_counts = processed_data["Affiliations"].str.extract(r'\b(\w+)\b').stack().value_counts()
+
+        # Convert the counts to a list of dictionaries
+        country_data = [{"country": country, "frequency": count} for country, count in country_counts.items()]
+
+        return jsonify({"chart_data": country_data})
 
 
-<<<<<<< HEAD
-@app.route("/export", methods=["GET"])
-@cross_origin()
-=======
-<<<<<<<< HEAD:app/data/routes.py
+
+    # You can implement the other chart types similarly
+    else:
+        return jsonify({"error": "Chart type not implemented yet"}), 400
+
+
+    
+
+
+
+
 @data_blueprint.route("/export", methods=["GET"])
 @cross_origin()
-========
-@app.route("/export", methods=["GET"])
->>>>>>>> main:app.py
->>>>>>> main
 def export_data():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
 
     # Convert processed DataFrame to Excel
     output = BytesIO()
-<<<<<<< HEAD
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-=======
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:  # type: ignore
->>>>>>> main
         data_store["processed"].to_excel(writer, index=False)
     output.seek(0)
     return send_file(
@@ -270,5 +299,3 @@ def export_data():
     )
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
