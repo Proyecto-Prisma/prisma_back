@@ -11,6 +11,7 @@ from wordcloud import WordCloud
 import re
 from collections import Counter
 nltk.download('stopwords')
+from firebase_admin import db
 
 import app
 from .utils import data_store
@@ -29,8 +30,12 @@ def upload_file():
     if "scopus_file" not in request.files or "wos_file" not in request.files:
         return jsonify({"error": "Missing Scopus or WoS file parameter"}), 400
 
+    user_uid = request.form.get('user_uid', None)
     scopus_file = request.files["scopus_file"]
     wos_file = request.files["wos_file"]
+
+    if not user_uid or not scopus_file or not wos_file:
+        return jsonify({"error": "Missing files or user UID"}), 400
 
     # Check if filenames are provided
     if scopus_file.filename == "" or wos_file.filename == "":
@@ -38,12 +43,26 @@ def upload_file():
 
     # Reading the files into the appropriate DataFrames
     try:
+        user_data = {
+            "user": user_uid,
+            "files": {}
+        }
+
         if scopus_file:  # Assuming Scopus files are CSVs
-            data_store["scopus"] = pd.read_csv(scopus_file)  # type: ignore
+            scopus_df = pd.read_csv(scopus_file)
+            data_store["scopus"] = scopus_df
+            user_data["files"]["scopus_file"] = scopus_file.filename
+
         if wos_file:  # Assuming WoS files are Excel files
-            data_store["wos"] = pd.read_excel(wos_file)  # type: ignore
+            wos_df = pd.read_excel(wos_file)
+            data_store["wos"] = wos_df
+            user_data["files"]["wos_file"] = wos_file.filename
+
+        # Firebase
+        ref = db.reference('/uploads')
+        ref.push(user_data)
+
     except Exception as e:
-        app.logger.error(f"Failed to read file: {e}")  # type: ignore
         return jsonify({"error": str(e)}), 500
 
     return jsonify({"message": "Files uploaded successfully"}), 200
@@ -159,7 +178,6 @@ def process_data():
 
     except Exception as e:
         # If any error occurs during processing, catch it and return as internal server error
-        app.logger.error(f"Error during processing: {e}")  # type: ignore
         return jsonify({"error": str(e)}), 500
 
 
@@ -236,7 +254,7 @@ def visualize_data(chart_type):
         year_data = [{"year": year, "frequency": count} for year, count in year_counts.items()]
 
         return jsonify({"chart_data": year_data})
-    
+
     elif chart_type == "abstract":
         # Extraer texto del abstract
         abstract_text = processed_data["Abstract"].str.cat(sep=" ")
@@ -275,7 +293,7 @@ def visualize_data(chart_type):
         return jsonify({"error": "Chart type not implemented yet"}), 400
 
 
-    
+
 
 
 
@@ -297,5 +315,3 @@ def export_data():
         as_attachment=True,
         download_name="processed_data.xlsx",
     )
-
-
