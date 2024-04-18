@@ -1,3 +1,4 @@
+import json
 from typing import Counter
 from flask import Blueprint, request, jsonify, send_file, session, redirect, url_for
 import pandas as pd
@@ -11,7 +12,8 @@ from wordcloud import WordCloud
 import re
 from collections import Counter
 nltk.download('stopwords')
-from firebase_admin import db
+from firebase_admin import db, storage
+from datetime import datetime
 
 import app
 from .utils import data_store
@@ -34,6 +36,8 @@ def upload_file():
     scopus_file = request.files["scopus_file"]
     wos_file = request.files["wos_file"]
 
+    cadena_busqueda = request.form.get('cadena_busqueda', "")
+
     if not user_uid or not scopus_file or not wos_file:
         return jsonify({"error": "Missing files or user UID"}), 400
 
@@ -45,27 +49,47 @@ def upload_file():
     try:
         user_data = {
             "user": user_uid,
-            "files": {}
+            "files": {},
+            "cadena_busqueda": cadena_busqueda,
+            "creacion_registro": datetime.now().isoformat()  # ISO formatted current date and time
         }
+
+        bucket = storage.bucket()
 
         if scopus_file:  # Assuming Scopus files are CSVs
             scopus_df = pd.read_csv(scopus_file)
             data_store["scopus"] = scopus_df
-            user_data["files"]["scopus_file"] = scopus_file.filename
+            scopus_file.seek(0)
+
+            # Upload Scopus file to Firebase Storage
+            scopus_blob = bucket.blob(f'scopus_files/{user_data["user"]}/{user_data["creacion_registro"]}/{scopus_file.filename}')
+            scopus_blob.upload_from_file(scopus_file, content_type=scopus_file.content_type)
+            scopus_blob.make_public()
+            user_data["files"]["scopus_file"] = scopus_blob.public_url
 
         if wos_file:  # Assuming WoS files are Excel files
             wos_df = pd.read_excel(wos_file)
             data_store["wos"] = wos_df
-            user_data["files"]["wos_file"] = wos_file.filename
+            wos_file.seek(0)
+
+            # Upload WoS file to Firebase Storage
+            wos_blob = bucket.blob(f'wos_files/{user_data["user"]}/{user_data["creacion_registro"]}/{wos_file.filename}')
+            wos_blob.upload_from_file(wos_file, content_type=wos_file.content_type)
+            wos_blob.make_public()
+            user_data["files"]["wos_file"] = wos_blob.public_url
 
         # Firebase
         ref = db.reference('/uploads')
-        ref.push(user_data)
+        new_ref = ref.push(user_data)
+        upload_key = new_ref.key
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    return jsonify({"message": "Files uploaded successfully"}), 200
+    return jsonify({
+        "message": "Files uploaded successfully",
+        "upload_key": upload_key
+    }), 200
 
 
 def get_country_wos(address):
@@ -298,17 +322,38 @@ def visualize_data(chart_type):
 
 
 
-@data_blueprint.route("/export", methods=["GET"])
+@data_blueprint.route("/export", methods=["POST"])
 @cross_origin()
 def export_data():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
+
+    folder_id = request.form.get('folder_id')
+    if not folder_id:
+        return jsonify({"error": "Folder ID is required"}), 400
 
     # Convert processed DataFrame to Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:  # type: ignore
         data_store["processed"].to_excel(writer, index=False)
     output.seek(0)
+
+    bucket = storage.bucket()
+    blob = bucket.blob(f'uploads/{folder_id}/files/processed_data.xlsx')
+
+    blob.upload_from_string(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    url = blob.public_url
+
+    # Update the reference in the Realtime Database
+    ref = db.reference('uploads')
+    ref.update({
+        'processed_data': url
+    })
+
     return send_file(
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
