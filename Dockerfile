@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install nltk
 RUN pip install wordcloud
 RUN pip install xlrd
+RUN pip install xlsxwriter
 
 # Exponer el puerto que utiliza la aplicación
 EXPOSE 8080

@@ -322,8 +322,8 @@ def visualize_data(chart_type):
 
 
 
-@data_blueprint.route("/export", methods=["POST"])
-@cross_origin()
+@data_blueprint.route("/export", methods=["POST", "OPTIONS"])
+@cross_origin(methods=["POST", "OPTIONS"])
 def export_data():
     if data_store["processed"] is None:
         return jsonify({"error": "Data has not been processed"}), 400
@@ -346,10 +346,11 @@ def export_data():
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+    blob.make_public()
     url = blob.public_url
 
     # Update the reference in the Realtime Database
-    ref = db.reference('uploads')
+    ref = db.reference(f'uploads/{folder_id}/files')
     ref.update({
         'processed_data': url
     })
