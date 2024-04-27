@@ -24,7 +24,6 @@ def login():
         return jsonify({"error": "Correo y contraseña son requeridos"}), 400
 
     payload = {"email": email, "password": password, "returnSecureToken": True}
-
     api_url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
     params = {"key": "AIzaSyDMqn9X38QQQ_FQLEVsKd3XCMDfDaNGVnc"}
 
@@ -32,11 +31,16 @@ def login():
 
     if response.status_code == 200:
         id_token = response.json().get("idToken")
-        return jsonify({"token": id_token}), 200
+        try:
+            # Verify the ID token and extract UID
+            decoded_token = auth.verify_id_token(id_token)
+            uid = decoded_token['uid']
+            return jsonify({"token": id_token, "uid": uid}), 200
+        except exceptions.FirebaseError as e:
+            # Handle error in decoding ID token
+            return jsonify({"error": str(e)}), 500
     else:
-        error_message = (
-            response.json().get("error", {}).get("message", "Error de autenticación")
-        )
+        error_message = response.json().get("error", {}).get("message", "Error de autenticación")
         return jsonify({"error": error_message}), response.status_code
 
 
