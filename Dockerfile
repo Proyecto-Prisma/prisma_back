@@ -13,6 +13,10 @@ RUN pip install nltk
 RUN pip install wordcloud
 RUN pip install xlrd
 RUN pip install xlsxwriter
+RUN pip install pycountry
+RUN pip install spacy
+
+RUN python -m spacy download en_core_web_sm
 
 # Exponer el puerto que utiliza la aplicación
 EXPOSE 8080
