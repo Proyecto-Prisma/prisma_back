@@ -37,6 +37,8 @@ def upload_file():
     wos_file = request.files["wos_file"]
 
     cadena_busqueda = request.form.get('cadena_busqueda', "")
+    inicio = request.form.get('inicio', "")
+    fin = request.form.get('fin', "")
 
     if not user_uid or not scopus_file or not wos_file:
         return jsonify({"error": "Missing files or user UID"}), 400
@@ -51,6 +53,8 @@ def upload_file():
             "user": user_uid,
             "files": {},
             "cadena_busqueda": cadena_busqueda,
+            "inicio": inicio,
+            "fin": fin,
             "creacion_registro": datetime.now().isoformat()  # ISO formatted current date and time
         }
 
