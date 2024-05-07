@@ -17,31 +17,17 @@ auth_blueprint = Blueprint("auth", __name__)
 @auth_blueprint.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    email = data.get("email", "")
-    password = data.get("password", "")
+    id_token = data.get("id_token", "")
 
-    if not email or not password:
-        return jsonify({"error": "Correo y contraseña son requeridos"}), 400
+    if not id_token:
+        return jsonify({"error": "ID token is required"}), 400
 
-    payload = {"email": email, "password": password, "returnSecureToken": True}
-    api_url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
-    params = {"key": "AIzaSyDMqn9X38QQQ_FQLEVsKd3XCMDfDaNGVnc"}
-
-    response = requests.post(api_url, params=params, json=payload)
-
-    if response.status_code == 200:
-        id_token = response.json().get("idToken")
-        try:
-            # Verify the ID token and extract UID
-            decoded_token = auth.verify_id_token(id_token)
-            uid = decoded_token['uid']
-            return jsonify({"token": id_token, "uid": uid}), 200
-        except exceptions.FirebaseError as e:
-            # Handle error in decoding ID token
-            return jsonify({"error": str(e)}), 500
-    else:
-        error_message = response.json().get("error", {}).get("message", "Error de autenticación")
-        return jsonify({"error": error_message}), response.status_code
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        uid = decoded_token['uid']
+        return jsonify({"uid": uid, "email": decoded_token.get("email", "")}), 200
+    except exceptions.FirebaseError as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @auth_blueprint.route("/verify_token", methods=["POST"])
@@ -72,26 +58,3 @@ def verify_token():
 @auth_blueprint.route("/logout", methods=["GET", "POST"])
 def logout():
     return jsonify({"message": "Logout successful"}), 200
-
-
-@auth_blueprint.route("/signup", methods=["POST"])
-def signup():
-    data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
-
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
-
-    api_url = "https://identitytoolkit.googleapis.com/v1/accounts:signUp"
-    params = {"key": "AIzaSyDMqn9X38QQQ_FQLEVsKd3XCMDfDaNGVnc"}
-
-    payload = {"email": email, "password": password, "returnSecureToken": True}
-
-    response = requests.post(api_url, params=params, json=payload)
-
-    if response.status_code == 200:
-        user_data = response.json()
-        return jsonify(user_data), 200
-    else:
-        return jsonify(response.json()), response.status_code
